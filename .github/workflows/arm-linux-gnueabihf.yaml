@@ -51,6 +51,14 @@ jobs:
           path: toolchain
           key: gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf
 
+      - name: Download custom glibc
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          wget https://ftp.gnu.org/gnu/glibc/glibc-2.22.tar.gz
+          tar xzf glibc-2.22.tar.gz
+          mv glibc-2.22 glibc
+
       - name: Download toolchain
         if: steps.cache-toolchain.outputs.cache-hit != 'true'
         shell: bash
@@ -61,6 +69,10 @@ jobs:
 
           mkdir $GITHUB_WORKSPACE/toolchain
           tar xvf ./arm-linux-gcc/gcc-arm-9.2-2019.12-x86_64-arm-none-linux-gnueabihf.tar.xz --strip-components 1 -C $GITHUB_WORKSPACE/toolchain
+
+          # Set the path to the custom glibc
+          export GLIBC_PATH=$GITHUB_WORKSPACE/glibc
+          echo "GLIBC_PATH=$GLIBC_PATH" >> $GITHUB_ENV
 
       - name: Download protoc
         if: steps.cache-build-result.outputs.cache-hit != 'true'
@@ -90,6 +102,8 @@ jobs:
 
           echo "CC=arm-none-linux-gnueabihf-gcc" >> "$GITHUB_ENV"
           echo "CXX=arm-none-linux-gnueabihf-g++" >> "$GITHUB_ENV"
+          echo "CFLAGS=-I$GLIBC_PATH/include" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L$GLIBC_PATH/lib" >> "$GITHUB_ENV"
 
       - name: Display toolchain info
         if: steps.cache-build-result.outputs.cache-hit != 'true'
@@ -144,6 +158,7 @@ jobs:
             --cmake_extra_defines CMAKE_INSTALL_PREFIX=$build_dir/install/ \
             --cmake_extra_defines CMAKE_SYSTEM_NAME=Linux \
             --cmake_extra_defines CMAKE_SYSTEM_PROCESSOR=armv7l \
+            --cmake_extra_defines CMAKE_PREFIX_PATH=$GLIBC_PATH \
             --target install \
             --parallel \
             --skip_tests
